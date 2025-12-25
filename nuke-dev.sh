@@ -24,6 +24,7 @@ CONTAINERS=(
   metabase
   mailhog
   openobserve
+  redis
 )
 
 VOLUMES=(
@@ -34,6 +35,7 @@ VOLUMES=(
   clickhouse_data
   metabase_data
   openobserve_data
+  redis_data
 )
 
 echo "Stopping containers (if running)..."
@@ -57,11 +59,11 @@ docker network rm "$NET" >/dev/null 2>&1 || true
 echo ""
 echo "Done."
 echo "Remaining matching containers (should be none):"
-docker ps -a --format '{{.Names}}' | grep -E '^(sqlserver|azurite|mongodb|postgres|clickhouse|metabase|mailhog|openobserve)$' || true
+docker ps -a --format '{{.Names}}' | grep -E '^(sqlserver|azurite|mongodb|postgres|clickhouse|metabase|mailhog|openobserve|redis)$' || true
 
 echo ""
 echo "Remaining matching volumes (should be none):"
-docker volume ls --format '{{.Name}}' | grep -E '^(sqlserver_data|azurite_data|mongodb_data|pg_data|clickhouse_data|metabase_data|openobserve_data)$' || true
+docker volume ls --format '{{.Name}}' | grep -E '^(sqlserver_data|azurite_data|mongodb_data|pg_data|clickhouse_data|metabase_data|openobserve_data|redis_data)$' || true
 
 echo ""
 echo "Remaining network (should be none):"
