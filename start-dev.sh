@@ -42,6 +42,28 @@ docker start redis >/dev/null || true
 echo "Starting MinIO S3..."
 docker start minio >/dev/null || true
 
+echo "Starting Sentry..."
+docker start sentry >/dev/null || true
+
+# Wait for Sentry dependencies (postgres and redis) to be ready
+if docker ps --format '{{.Names}}' | grep -q '^sentry$'; then
+  echo "Waiting for Sentry to initialize..."
+  sleep 5
+  
+  # Initialize Sentry database if needed (first run)
+  # Create sentry database in postgres if it doesn't exist
+  if ! docker exec postgres psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'sentry'" 2>/dev/null | grep -q 1; then
+    echo "Initializing Sentry database..."
+    docker exec postgres psql -U postgres -c "CREATE DATABASE sentry;" 2>/dev/null || true
+    sleep 3
+    # Run Sentry migrations (wait for container to be fully ready)
+    echo "Running Sentry migrations (this may take a minute on first run)..."
+    docker exec sentry sentry upgrade --noinput 2>/dev/null || {
+      echo "Note: Sentry initialization may take a moment. Check http://localhost:9004 after a minute."
+    }
+  fi
+fi
+
 # Wait for MinIO to be ready, then ensure bucket exists
 if docker ps --format '{{.Names}}' | grep -q '^minio$'; then
   echo "Waiting for MinIO to initialize..."
@@ -76,6 +98,11 @@ echo "  Secret Key: minioadmin"
 echo "  Region: us-east-1"
 echo "  Bucket: user-uploads"
 echo "  Console: http://localhost:9003"
+echo ""
+echo "Sentry:"
+echo "  Web UI: http://localhost:9004"
+echo "  Default login: sentry / sentry (change on first login)"
+echo "  DSN: Get from project settings after creating a project"
 BASH
 
 chmod +x ~/bin/start-dev

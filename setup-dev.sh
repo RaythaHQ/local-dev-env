@@ -4,7 +4,7 @@
 # This creates:
 # - a dedicated docker network
 # - named volumes (so data persists across container restarts/recreates)
-# - containers with fixed names: sqlserver, azurite, mongodb, postgres, clickhouse, metabase, mailhog, openobserve, redis, minio
+# - containers with fixed names: sqlserver, azurite, mongodb, postgres, clickhouse, metabase, mailhog, openobserve, redis, minio, sentry
 #
 # Save as: ~/bin/setup-dev.sh
 # Run: chmod +x ~/bin/setup-dev.sh && ~/bin/setup-dev.sh
@@ -58,6 +58,13 @@ MINIO_CONSOLE_PORT="9003"
 # Default Bucket: user-uploads (created automatically on first start)
 # Console UI: http://localhost:9003
 
+# Sentry
+SENTRY_PORT="9004"
+# Web UI: http://localhost:9004
+# Default admin user: sentry / sentry (change on first login)
+# Uses existing postgres and redis containers
+# DSN will be shown in start-dev output after first initialization
+
 # ---- volumes (named = persistent) ----
 V_MSSQL="sqlserver_data"
 V_AZURITE="azurite_data"
@@ -68,6 +75,7 @@ V_MB="metabase_data"
 V_OO="openobserve_data"
 V_REDIS="redis_data"
 V_MINIO="minio_data"
+V_SENTRY="sentry_data"
 
 # ---- helpers ----
 ensure_network() {
@@ -162,6 +170,7 @@ main() {
   ensure_volume "$V_OO"
   ensure_volume "$V_REDIS"
   ensure_volume "$V_MINIO"
+  ensure_volume "$V_SENTRY"
 
   # ---- SQL Server ----
   # Server=localhost,1433;Database=master;User Id=sa;Password=ChangeMe_Strong!123;TrustServerCertificate=True;
@@ -283,6 +292,33 @@ main() {
     -v "${V_MINIO}:/data" \
     minio/minio:latest \
     server /data --console-address ":9001"
+
+  # ---- Sentry ----
+  # Error tracking and monitoring
+  # Web UI: http://localhost:9004
+  # Default admin: sentry / sentry (change on first login)
+  # Uses existing postgres and redis containers
+  # DSN format: http://<key>@localhost:9004/<project-id>
+  # Note: First startup will initialize database - this may take a minute
+  ensure_container sentry \
+    --restart unless-stopped \
+    --network "$NET" \
+    -p "${SENTRY_PORT}:9000" \
+    -e "SENTRY_SECRET_KEY=dev-secret-key-change-in-production-please" \
+    -e "SENTRY_POSTGRES_HOST=postgres" \
+    -e "SENTRY_POSTGRES_PORT=5432" \
+    -e "SENTRY_DB_USER=${PG_USER}" \
+    -e "SENTRY_DB_PASSWORD=${PG_PASS}" \
+    -e "SENTRY_DB_NAME=sentry" \
+    -e "SENTRY_REDIS_HOST=redis" \
+    -e "SENTRY_REDIS_PORT=6379" \
+    -e "SENTRY_REDIS_DB=0" \
+    -e "SENTRY_USE_SSL=false" \
+    -e "SENTRY_URL_PREFIX=http://localhost:9004" \
+    -e "SENTRY_SINGLE_ORGANIZATION=true" \
+    -v "${V_SENTRY}:/var/lib/sentry/files" \
+    sentry:latest \
+    run web
 
 
   echo "Setup complete."
