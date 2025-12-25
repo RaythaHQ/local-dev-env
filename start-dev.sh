@@ -45,6 +45,9 @@ docker start minio >/dev/null || true
 echo "Starting Sentry..."
 docker start sentry >/dev/null || true
 
+echo "Starting VictoriaLogs..."
+docker start victorialogs >/dev/null || true
+
 # Wait for Sentry dependencies (postgres and redis) to be ready
 if docker ps --format '{{.Names}}' | grep -q '^sentry$'; then
   echo "Waiting for Sentry to initialize..."
@@ -103,6 +106,11 @@ echo "Sentry:"
 echo "  Web UI: http://localhost:9004"
 echo "  Default login: sentry / sentry (change on first login)"
 echo "  DSN: Get from project settings after creating a project"
+echo ""
+echo "VictoriaLogs:"
+echo "  Web UI: http://localhost:9428"
+echo "  Log ingestion: http://localhost:9428/insert/loki/api/v1/push"
+echo "  Query API: http://localhost:9428/select/logsql/query"
 BASH
 
 chmod +x ~/bin/start-dev

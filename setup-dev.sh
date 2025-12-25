@@ -4,7 +4,7 @@
 # This creates:
 # - a dedicated docker network
 # - named volumes (so data persists across container restarts/recreates)
-# - containers with fixed names: sqlserver, azurite, mongodb, postgres, clickhouse, metabase, mailhog, openobserve, redis, minio, sentry
+# - containers with fixed names: sqlserver, azurite, mongodb, postgres, clickhouse, metabase, mailhog, openobserve, redis, minio, sentry, victorialogs
 #
 # Save as: ~/bin/setup-dev.sh
 # Run: chmod +x ~/bin/setup-dev.sh && ~/bin/setup-dev.sh
@@ -65,6 +65,12 @@ SENTRY_PORT="9004"
 # Uses existing postgres and redis containers
 # DSN will be shown in start-dev output after first initialization
 
+# VictoriaLogs
+VICTORIALOGS_PORT="9428"
+# Web UI: http://localhost:9428
+# Log ingestion endpoint: http://localhost:9428/insert/loki/api/v1/push
+# Query API: http://localhost:9428/select/logsql/query
+
 # ---- volumes (named = persistent) ----
 V_MSSQL="sqlserver_data"
 V_AZURITE="azurite_data"
@@ -76,6 +82,7 @@ V_OO="openobserve_data"
 V_REDIS="redis_data"
 V_MINIO="minio_data"
 V_SENTRY="sentry_data"
+V_VICTORIALOGS="victorialogs_data"
 
 # ---- helpers ----
 ensure_network() {
@@ -171,6 +178,7 @@ main() {
   ensure_volume "$V_REDIS"
   ensure_volume "$V_MINIO"
   ensure_volume "$V_SENTRY"
+  ensure_volume "$V_VICTORIALOGS"
 
   # ---- SQL Server ----
   # Server=localhost,1433;Database=master;User Id=sa;Password=ChangeMe_Strong!123;TrustServerCertificate=True;
@@ -319,6 +327,20 @@ main() {
     -v "${V_SENTRY}:/var/lib/sentry/files" \
     sentry:latest \
     run web
+
+  # ---- VictoriaLogs ----
+  # Log management and querying system
+  # Web UI: http://localhost:9428
+  # Log ingestion endpoint: http://localhost:9428/insert/loki/api/v1/push (Loki-compatible)
+  # Query API: http://localhost:9428/select/logsql/query
+  # Compatible with Loki clients and Grafana
+  ensure_container victorialogs \
+    --restart unless-stopped \
+    --network "$NET" \
+    -p "${VICTORIALOGS_PORT}:9428" \
+    -v "${V_VICTORIALOGS}:/victoria-logs-data" \
+    victoriametrics/victoria-logs:latest \
+    -storageDataPath=/victoria-logs-data
 
 
   echo "Setup complete."
