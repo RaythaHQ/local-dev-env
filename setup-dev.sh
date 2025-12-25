@@ -89,14 +89,36 @@ ensure_container() {
   
   # Extract image name (last argument that looks like an image name)
   # This handles cases like: redis:7 redis-server --appendonly yes
+  # Image names typically: contain / or :, don't start with /, and aren't common command words
   local image=""
   local args=("$@")
+  local skip_words="yes|no|true|false"
   for ((i=${#args[@]}-1; i>=0; i--)); do
-    if [[ "${args[i]}" =~ ^[a-zA-Z0-9._/-]+(:[a-zA-Z0-9._-]+)?$ ]] && [[ ! "${args[i]}" =~ ^-- ]]; then
-      image="${args[i]}"
+    local arg="${args[i]}"
+    # Skip flags and common command words
+    if [[ "$arg" =~ ^-- ]] || [[ "$arg" =~ ^($skip_words)$ ]]; then
+      continue
+    fi
+    # Image names typically contain / (registry/repo) or : (tag), or are simple names
+    # But exclude file paths (starting with /)
+    if [[ "$arg" =~ ^[a-zA-Z0-9._/-]+(:[a-zA-Z0-9._-]+)?$ ]] && [[ ! "$arg" =~ ^/ ]] && [[ "$arg" =~ (/|:) ]]; then
+      image="$arg"
       break
     fi
   done
+  # If no image found with / or :, try the last non-flag argument (for simple names like "mongo:7")
+  if [[ -z "$image" ]]; then
+    for ((i=${#args[@]}-1; i>=0; i--)); do
+      local arg="${args[i]}"
+      if [[ ! "$arg" =~ ^-- ]] && [[ ! "$arg" =~ ^($skip_words)$ ]] && [[ ! "$arg" =~ ^/ ]]; then
+        # Check if it looks like an image name (alphanumeric with possible : and -)
+        if [[ "$arg" =~ ^[a-zA-Z0-9._/-]+(:[a-zA-Z0-9._-]+)?$ ]]; then
+          image="$arg"
+          break
+        fi
+      fi
+    done
+  fi
   
   if [[ -z "$image" ]]; then
     echo "Error: Could not determine image name for container $name" >&2
@@ -106,7 +128,7 @@ ensure_container() {
   # Ensure image is available
   ensure_image "$image"
   
-  if ! docker inspect "$name" >/dev/null 2>&1; then
+  if ! docker container inspect "$name" >/dev/null 2>&1; then
     # create container but don't necessarily start it yet
     # Suppress stdout but show stderr for errors
     if ! docker run -d --name "$name" "$@" >/dev/null; then
