@@ -46,6 +46,9 @@ MSSQL_PORT="1433"
 OO_HTTP_PORT="5080"
 OO_GRPC_PORT="5081"        # optional but nice to expose
 
+# Redis
+
+
 # ---- volumes (named = persistent) ----
 V_MSSQL="sqlserver_data"
 V_AZURITE="azurite_data"
@@ -54,6 +57,7 @@ V_PG="pg_data"      # keeping your screenshot name
 V_CH="clickhouse_data"
 V_MB="metabase_data"
 V_OO="openobserve_data"
+V_REDIS="redis_data"
 
 # ---- helpers ----
 ensure_network() {
@@ -90,6 +94,7 @@ main() {
   ensure_volume "$V_CH"
   ensure_volume "$V_MB"
   ensure_volume "$V_OO"
+  ensure_volume "$V_REDIS"
 
   # ---- SQL Server ----
   # Server=localhost,1433;Database=master;User Id=sa;Password=ChangeMe_Strong!123;TrustServerCertificate=True;
@@ -171,6 +176,8 @@ main() {
     -p 8025:8025 \
     mailhog/mailhog
 
+  # ---- OpenObserve ----
+  # http://localhost:5080
   ensure_container openobserve \
     --restart unless-stopped \
     --network "$NET" \
@@ -180,6 +187,17 @@ main() {
     -e "ZO_ROOT_USER_PASSWORD=Complexpass#123" \
     -v "${V_OO}:/data" \
     openobserve/openobserve:latest
+
+  # ---- Redis ----
+  # redis://localhost:6379
+  ensure_container redis \
+    --restart unless-stopped \
+    --network "$NET" \
+    -p 6379:6379 \
+    -v "${V_REDIS}:/data" \
+    redis:7 \
+    redis-server --appendonly yes
+
 
   echo "Setup complete."
   echo "Run: start-dev (after installing it below) or: ~/bin/start-dev"
