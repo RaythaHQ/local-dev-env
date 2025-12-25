@@ -36,6 +36,9 @@ docker start mailhog >/dev/null || true
 echo "Starting OpenObserve..."
 docker start openobserve >/dev/null || true
 
+echo "Starting redis..."
+docker start redis >/dev/null || true
+
 echo ""
 echo "Dev environment is up."
 echo ""
