@@ -4,7 +4,7 @@
 # This creates:
 # - a dedicated docker network
 # - named volumes (so data persists across container restarts/recreates)
-# - containers with fixed names: sqlserver, azurite, mongodb, postgres, clickhouse, metabase
+# - containers with fixed names: sqlserver, azurite, mongodb, postgres, clickhouse, metabase, mailhog, openobserve, redis
 #
 # Save as: ~/bin/setup-dev.sh
 # Run: chmod +x ~/bin/setup-dev.sh && ~/bin/setup-dev.sh
@@ -73,13 +73,47 @@ ensure_volume() {
   fi
 }
 
+ensure_image() {
+  local image="$1"
+  if ! docker image inspect "$image" >/dev/null 2>&1; then
+    echo "Pulling image: $image"
+    docker pull "$image" || {
+      echo "Warning: Failed to pull $image, docker run will attempt to pull it"
+    }
+  fi
+}
+
 ensure_container() {
   local name="$1"
   shift
+  
+  # Extract image name (last argument that looks like an image name)
+  # This handles cases like: redis:7 redis-server --appendonly yes
+  local image=""
+  local args=("$@")
+  for ((i=${#args[@]}-1; i>=0; i--)); do
+    if [[ "${args[i]}" =~ ^[a-zA-Z0-9._/-]+(:[a-zA-Z0-9._-]+)?$ ]] && [[ ! "${args[i]}" =~ ^-- ]]; then
+      image="${args[i]}"
+      break
+    fi
+  done
+  
+  if [[ -z "$image" ]]; then
+    echo "Error: Could not determine image name for container $name" >&2
+    return 1
+  fi
+  
+  # Ensure image is available
+  ensure_image "$image"
+  
   if ! docker inspect "$name" >/dev/null 2>&1; then
     # create container but don't necessarily start it yet
-    docker run -d --name "$name" "$@" >/dev/null
-    docker stop "$name" >/dev/null
+    # Suppress stdout but show stderr for errors
+    if ! docker run -d --name "$name" "$@" >/dev/null; then
+      echo "Error: Failed to create container $name" >&2
+      return 1
+    fi
+    docker stop "$name" >/dev/null 2>&1
   fi
 }
 
