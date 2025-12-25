@@ -4,7 +4,7 @@
 # This creates:
 # - a dedicated docker network
 # - named volumes (so data persists across container restarts/recreates)
-# - containers with fixed names: sqlserver, azurite, mongodb, postgres, clickhouse, metabase, mailhog, openobserve, redis
+# - containers with fixed names: sqlserver, azurite, mongodb, postgres, clickhouse, metabase, mailhog, openobserve, redis, minio
 #
 # Save as: ~/bin/setup-dev.sh
 # Run: chmod +x ~/bin/setup-dev.sh && ~/bin/setup-dev.sh
@@ -48,6 +48,15 @@ OO_GRPC_PORT="5081"        # optional but nice to expose
 
 # Redis
 
+# MinIO S3
+MINIO_PORT="9002"
+MINIO_CONSOLE_PORT="9003"
+# Access Key ID: minioadmin (default)
+# Secret Access Key: minioadmin (default)
+# Endpoint: http://localhost:9002
+# Region: us-east-1 (default, can be changed)
+# Default Bucket: user-uploads (created automatically on first start)
+# Console UI: http://localhost:9003
 
 # ---- volumes (named = persistent) ----
 V_MSSQL="sqlserver_data"
@@ -58,6 +67,7 @@ V_CH="clickhouse_data"
 V_MB="metabase_data"
 V_OO="openobserve_data"
 V_REDIS="redis_data"
+V_MINIO="minio_data"
 
 # ---- helpers ----
 ensure_network() {
@@ -151,6 +161,7 @@ main() {
   ensure_volume "$V_MB"
   ensure_volume "$V_OO"
   ensure_volume "$V_REDIS"
+  ensure_volume "$V_MINIO"
 
   # ---- SQL Server ----
   # Server=localhost,1433;Database=master;User Id=sa;Password=ChangeMe_Strong!123;TrustServerCertificate=True;
@@ -253,6 +264,25 @@ main() {
     -v "${V_REDIS}:/data" \
     redis:7 \
     redis-server --appendonly yes
+
+  # ---- MinIO S3 ----
+  # S3-compatible object storage
+  # Access Key ID: minioadmin (default, can be changed via MINIO_ROOT_USER env var)
+  # Secret Access Key: minioadmin (default, can be changed via MINIO_ROOT_PASSWORD env var)
+  # Endpoint: http://localhost:9002
+  # Region: us-east-1 (default, can be changed)
+  # Default Bucket: user-uploads (created automatically on first start)
+  # Console UI: http://localhost:9003 (login with minioadmin/minioadmin)
+  ensure_container minio \
+    --restart unless-stopped \
+    --network "$NET" \
+    -p "${MINIO_PORT}:9000" \
+    -p "${MINIO_CONSOLE_PORT}:9001" \
+    -e "MINIO_ROOT_USER=minioadmin" \
+    -e "MINIO_ROOT_PASSWORD=minioadmin" \
+    -v "${V_MINIO}:/data" \
+    minio/minio:latest \
+    server /data --console-address ":9001"
 
 
   echo "Setup complete."

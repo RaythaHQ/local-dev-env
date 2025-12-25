@@ -2,8 +2,8 @@
 # One-time teardown / cleanup script
 # =========================
 # This will REMOVE EVERYTHING created by your setup-dev.sh:
-# - containers (sqlserver, azurite, mongodb, postgres, clickhouse, metabase, mailhog, openobserve)
-# - volumes (sqlserver_data, azurite_data, mongodb_data, pg_data, clickhouse_data, metabase_data, openobserve_data)
+# - containers (sqlserver, azurite, mongodb, postgres, clickhouse, metabase, mailhog, openobserve, redis, minio)
+# - volumes (sqlserver_data, azurite_data, mongodb_data, pg_data, clickhouse_data, metabase_data, openobserve_data, redis_data, minio_data)
 # - network (devnet)
 #
 # Save as: ~/bin/nuke-dev.sh
@@ -25,6 +25,7 @@ CONTAINERS=(
   mailhog
   openobserve
   redis
+  minio
 )
 
 VOLUMES=(
@@ -36,6 +37,7 @@ VOLUMES=(
   metabase_data
   openobserve_data
   redis_data
+  minio_data
 )
 
 echo "Stopping containers (if running)..."
@@ -59,11 +61,11 @@ docker network rm "$NET" >/dev/null 2>&1 || true
 echo ""
 echo "Done."
 echo "Remaining matching containers (should be none):"
-docker ps -a --format '{{.Names}}' | grep -E '^(sqlserver|azurite|mongodb|postgres|clickhouse|metabase|mailhog|openobserve|redis)$' || true
+docker ps -a --format '{{.Names}}' | grep -E '^(sqlserver|azurite|mongodb|postgres|clickhouse|metabase|mailhog|openobserve|redis|minio)$' || true
 
 echo ""
 echo "Remaining matching volumes (should be none):"
-docker volume ls --format '{{.Name}}' | grep -E '^(sqlserver_data|azurite_data|mongodb_data|pg_data|clickhouse_data|metabase_data|openobserve_data|redis_data)$' || true
+docker volume ls --format '{{.Name}}' | grep -E '^(sqlserver_data|azurite_data|mongodb_data|pg_data|clickhouse_data|metabase_data|openobserve_data|redis_data|minio_data)$' || true
 
 echo ""
 echo "Remaining network (should be none):"

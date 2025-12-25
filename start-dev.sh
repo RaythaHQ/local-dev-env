@@ -39,6 +39,28 @@ docker start openobserve >/dev/null || true
 echo "Starting redis..."
 docker start redis >/dev/null || true
 
+echo "Starting MinIO S3..."
+docker start minio >/dev/null || true
+
+# Wait for MinIO to be ready, then ensure bucket exists
+if docker ps --format '{{.Names}}' | grep -q '^minio$'; then
+  echo "Waiting for MinIO to initialize..."
+  sleep 5
+  
+  # Create user-uploads bucket if it doesn't exist using MinIO Client
+  # Use a temporary mc container to connect to MinIO and create the bucket
+  # Note: Bucket can also be created via the console at http://localhost:9003
+  docker run --rm --network devnet --entrypoint sh minio/mc:latest -c "
+    mc alias set local http://minio:9000 minioadmin minioadmin
+    if ! mc ls local/user-uploads 2>/dev/null | grep -q user-uploads; then
+      echo 'Creating user-uploads bucket...'
+      mc mb local/user-uploads
+    fi
+  " 2>/dev/null || {
+    echo "Note: Bucket can be created via the console at http://localhost:9003 (login with minioadmin/minioadmin)"
+  }
+fi
+
 echo ""
 echo "Dev environment is up."
 echo ""
@@ -46,6 +68,14 @@ echo "UIs:"
 echo "  Metabase    → http://localhost:3000"
 echo "  MailHog     → http://localhost:8025"
 echo "  OpenObserve → http://localhost:5080"
+echo ""
+echo "MinIO S3:"
+echo "  Endpoint: http://localhost:9002"
+echo "  Access Key: minioadmin"
+echo "  Secret Key: minioadmin"
+echo "  Region: us-east-1"
+echo "  Bucket: user-uploads"
+echo "  Console: http://localhost:9003"
 BASH
 
 chmod +x ~/bin/start-dev
